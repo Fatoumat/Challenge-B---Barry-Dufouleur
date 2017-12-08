@@ -1,0 +1,380 @@
+---
+title: "Challenge B VF"
+author: "BARRY et DUFOULEUR"
+date: "08/12/2017"
+output: pdf_document
+---
+## GITHUB : https://github.com/Fatoumat/Challenge-B---Barry-Dufouleur ##
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(include = FALSE)
+```
+
+
+```{r CODE NEEDED CHALLENGE 1, echo = TRUE}
+load.libraries <- c('tidyverse','randomForest')
+install.lib <- load.libraries[!load.libraries %in% installed.packages()]
+for(libs in install.lib) install.packages(libs, dependencies = TRUE)
+sapply(load.libraries, require, character = TRUE)
+
+# +0.25 if correctly load libraries - other ways OK as long as properly installed and loaded
+```
+
+```{r housing-step1-sol, echo = TRUE}
+
+train <- read.csv(file=file.choose(),header=T,dec=".")
+test <- read.csv(file=file.choose(),header=T,dec=".")
+
+train %>% summarise_all(.funs = funs(sum(is.na(.)))) %>% gather(key = "feature", value = "missing.observations") %>% filter(missing.observations > 0)
+
+remove.vars <- train %>% summarise_all(.funs = funs(sum(is.na(.)))) %>% gather(key = "feature", value = "missing.observations") %>% filter(missing.observations > 100) %>% select(feature) %>% unlist
+
+train <- train %>% select(- one_of(remove.vars))
+
+train %>% summarise_all(.funs = funs(sum(is.na(.)))) %>% gather(key = "feature", value = "missing.observations") %>% filter(missing.observations > 0)
+
+train <- train %>% filter(is.na(GarageType) == FALSE, is.na(MasVnrType) == FALSE, is.na(BsmtFinType2) == FALSE, is.na(BsmtExposure) == FALSE, is.na(Electrical) == FALSE)
+
+train %>% summarise_all(.funs = funs(sum(is.na(.)))) %>% gather(key = "feature", value = "missing.observations") %>% filter(missing.observations > 0)
+
+```
+```{r housing-step9-sol, echo = TRUE}
+#Convert character to factors 
+cat_var <- train %>% summarise_all(.funs = funs(is.character(.))) %>% gather(key = "feature", value = "is.chr") %>% filter(is.chr == TRUE) %>% select(feature) %>% unlist
+# cat_var is the vector of variable names that are stored as character
+
+train %>% mutate_at(.cols = cat_var, .funs = as.factor)
+
+```
+
+
+******
+TASK 1 B
+
+STEP 1 :
+Random forest technique is a machin learning algorithm, which is efficient to find the relationship between dependent and independent variables. Random Forest classify independent variables according to their relationship with the dependent variable.
+
+```{r Task 1b - Step 2, INCLUDE = FALSE}
+library(randomForest)
+train <- train[,-c(1,27)]
+
+#Rename the variables that begin with a number
+which(colnames(train) == "3SsnPorch")
+which(colnames(train) == "2ndFlrSF")
+which(colnames(train) == "1stFlrSF")
+which(colnames(train) == "ExterCond")
+
+names(train)[40]<-"R1stFlrSF"
+names(train)[41]<-"R2ndFlrSF"
+names(train)[65]<-"R3SsnPorch"
+
+library(dplyr)
+train=train %>% mutate_if(is.character, as.factor)
+
+## RandomForest Regression
+Fit <- randomForest(SalePrice ~ .,  data = train)
+print(Fit)
+```
+
+STEP 3 :
+First, to make our codes work because there were difference between the 2 files, we had to "clean" the test file, to make them similar. So we have remove some observations that contain NA and we have remove variables. 
+Because of a level problem, we ensure that all the variables have the same level in these 2 samples.
+Finally there were a problem, still remaining, of level with the variable extercond, indeed its level is different between the 2 samples. In test there's additionnaly the level PO. Because this variable don't seems to be important we get rid of this problem by deleting this variable in the test and the train sample, for all this exercise.
+
+By comparing the 2 predictions we see that the values given by the prediction with random forest are positive instead of those find with ols prediction. Additionnaly the values predicted in OLS are very large (in the negative sens) as opposed to those of the random forest.
+
+```{r Task 1b - Step 3}
+
+## Same treatment that did in challenge A for train, here for test
+
+remove.vars <- test %>% summarise_all(.funs = funs(sum(is.na(.)))) %>% gather(key = "feature", value = "missing.observations") %>% filter(missing.observations > 100) %>% select(feature) %>% unlist
+
+test <- test %>% select(- one_of(remove.vars))
+
+
+test %>% summarise_all(.funs = funs(sum(is.na(.)))) %>% gather(key = "feature", value = "missing.observations") %>% filter(missing.observations > 0)
+
+test <- test %>% filter(is.na(GarageType) == FALSE, is.na(MasVnrType) == FALSE, is.na(BsmtFinType2) == FALSE, is.na(BsmtExposure) == FALSE, is.na(Electrical) == FALSE)
+
+#Delete ExterCond and ID in test
+which(colnames(test) == "ExterCond")
+test <- test[,-c(1,27)]
+
+#Rename variables that begin with a number
+which(colnames(test) == "3SsnPorch")
+which(colnames(test) == "2ndFlrSF")
+which(colnames(test) == "1stFlrSF")
+
+names(test)[65]<-"R3SsnPorch"
+names(test)[41]<-"R2ndFlrSF"
+names(test)[40]<-"R1stFlrSF"
+
+# Transform the variable in test, to be like in train
+
+test=test %>% mutate_if(is.character, as.factor)
+
+levels(test$MSZoning)<-levels(train$MSZoning)
+levels(test$Street)<-levels(train$Street)
+levels(test$LotShape)<-levels(train$LotShape)
+levels(test$LandContour)<-levels(train$LandContour)
+levels(test$LandSlope)<-levels(train$LandSlope)
+levels(test$LotConfig)<-levels(train$LotConfig)
+
+levels(test$Utilities)<-levels(train$Utilities)
+levels(test$Neighborhood)<-levels(train$Neighborhood)
+levels(test$Condition1)<-levels(train$Condition1)
+levels(test$Condition2)<-levels(train$Condition2)
+levels(test$HouseStyle)<-levels(train$HouseStyle)
+levels(test$BldgType)<-levels(train$BldgType)
+levels(test$Exterior1st)<-levels(train$Exterior1st)
+
+levels(test$RoofStyle)<-levels(train$RoofStyle)
+levels(test$RoofMatl)<-levels(train$RoofMatl)
+levels(test$MasVnrType)<-levels(train$MasVnrType)
+levels(test$Exterior2nd)<-levels(train$Exterior2nd)
+levels(test$Foundation)<-levels(train$Foundation)
+levels(test$ExterQual)<-levels(train$ExterQual)
+levels(test$BsmtExposure)<-levels(train$BsmtExposure)
+
+levels(test$BsmtCond)<-levels(train$BsmtCond)
+levels(test$BsmtQual)<-levels(train$BsmtQual)
+levels(test$BsmtFinType2)<-levels(train$BsmtFinType2)
+levels(test$BsmtFinType1)<-levels(train$BsmtFinType1)
+levels(test$CentralAir)<-levels(train$CentralAir)
+levels(test$Heating)<-levels(train$Heating)
+levels(test$HeatingQC)<-levels(train$HeatingQC)
+levels(test$Electrical)<-levels(train$Electrical)
+levels(test$KitchenQual)<-levels(train$KitchenQual)
+
+levels(test$Functional)<-levels(train$Functional)
+levels(test$GarageType)<-levels(train$GarageType)
+levels(test$GarageFinish)<-levels(train$GarageFinish)
+levels(test$GarageQual)<-levels(train$GarageQual)
+levels(test$GarageCond)<-levels(train$GarageCond)
+levels(test$PavedDrive)<-levels(train$PavedDrive)
+levels(test$SaleType)<-levels(train$SaleType)
+
+##Prediction with randomForest
+
+Fit_Pred <- predict(Fit, newdata = test)
+print(Fit_Pred)
+
+## Prediction with OLS
+OlsRegression <-lm(SalePrice ~ .,  data = train)
+OLS_Pred <- predict(OlsRegression, newdata = test)
+print(OLS_Pred)
+```
+
+TASK 2 B
+
+```{r Challenge B, include=FALSE}
+# Simulating an overfit
+library(tidyverse)
+library(np)
+library(caret)
+# True model : y = x^3 + epsilon
+set.seed(1)
+Nsim <- 150
+b <- c(0,1)
+x0 <- rep(1, Nsim)
+x1 <- rnorm(n = Nsim)
+
+X <- cbind(x0, x1^3)
+y.true <- X %*% b
+
+eps <- rnorm(n = Nsim)
+y <- X %*% b + eps
+
+df <- tbl_df(y[,1]) %>% rename(y = value) %>% bind_cols(tbl_df(x1)) %>% rename(x = value) %>% bind_cols(tbl_df(y.true[,1])) %>% rename(y.true = value)
+
+# Split sample into training and testing, 80/20
+training.index <- createDataPartition(y = y, times = 1, p = 0.8)
+df <- df %>% mutate(which.data = ifelse(1:n() %in% training.index$Resample1, "training", "test"))
+
+training <- df %>% filter(which.data == "training")
+test <- df %>% filter(which.data == "test")
+
+# Train linear model y ~ x on training
+lm.fit <- lm(y ~ x, data = training)
+summary(lm.fit)
+
+df <- df %>% mutate(y.lm = predict(object = lm.fit, newdata = df))
+training <- training %>% mutate(y.lm = predict(object = lm.fit))
+```
+
+
+```{r Step 1}
+#Kernel regression on the training table, with a bandwidth of 0.5
+ll.fit.lowflex <- npreg(y ~ x, data = training, method = "ll", bws = 0.5)
+```
+
+```{r Step 2}
+#Kernel regression on the training table, with a bandwidth of 0.01 
+ll.fit.highflex <- npreg(y ~ x, data = training, method = "ll", bws = 0.01)
+```
+
+
+```{r Step 3}
+#Transformation of the training data in order to plot the predictions of both regression
+df <- df %>% mutate(y.ll.lowflex = predict(object = ll.fit.lowflex, newdata = df), y.ll.highflex = predict(object = ll.fit.highflex, newdata = df))
+training <- training %>% mutate(y.ll.lowflex = predict(object = ll.fit.lowflex, newdata = training), y.ll.highflex = predict(object = ll.fit.highflex, newdata = training))
+
+#Predictions of ll.fit.lowflexi and ll.fit.highflexi on the training data
+ggplot(training) + geom_point(mapping = aes(x = x, y = y)) + 
+  geom_line(mapping = aes(x = x, y = y.true)) + 
+  geom_line(mapping = aes(x = x, y = y.ll.lowflex), color = "red") + 
+  geom_line(mapping = aes(x = x, y = y.ll.highflex), color = "blue")
+```
+STEP 3 (graph on R) :
+The high flexibility local linear model is the model which predictions are the more variable. 
+The predictions which have the least biais are the low flexibility local linear model predictions. Even if ll.fit.highflexi contains all training observations, we prefer to use ll.fit.lowd=flexi with which observations (of all the data) have more chance to be close to the predictions of the low flexibility model.
+
+
+```{r Step 5}
+# Regressions on the test data
+ll.fit.lowflexi2 <- npreg(y ~ x, data = test, method = "ll", bws = 0.5)
+
+ll.fit.highflexi2 <- npreg(y ~ x, data = test, method = "ll", bws = 0.01)
+
+#Transformation of the testing data in order to plot the predictions of both regression
+test <- test %>% mutate(ll.fit.lowflex2= predict(object = ll.fit.lowflexi2, newdata = test), ll.fit.highflex2 = predict(object = ll.fit.highflexi2, newdata = test))
+
+#Predictions of ll.fit.lowflexi2 and ll.fit.highflexi2 on the testing data
+ggplot(test) + geom_point(mapping = aes(x = x, y = y)) +
+  geom_line(mapping = aes(x = x, y = ll.fit.lowflex2), color = "red") + 
+  geom_line(mapping = aes(x = x, y = ll.fit.highflex2), color = "blue")
+```
+STEP 5 (graph on R) ;
+We have the same comment.The high flexibility local linear model is the model which predictions are the more variable. 
+The predictions which have the least biais are the low flexibility local linear model predictions.
+
+
+```{r Step 6}
+# Create vector of several bandwidth
+bw <- seq(0.01, 0.5, by = 0.001)
+```
+
+```{r Step 7}
+#Kernel regression on the training data with each bandwidth
+#We apply the same function npreg over the vector of bandwidth
+llbw.fit <- lapply(X = bw, FUN = function(bw) {npreg(y ~ x, data = training, method = "ll", bws = bw)})
+```
+
+```{r step 8}
+#MSE on the training set for each bandwidth
+#Creation of a function which computes adds the mse on the training set
+mse.training <- function(fit.model){
+  predictions <- predict(object = fit.model, newdata = training)
+  training %>% mutate(squared.error = (y - predictions)^2) %>% summarize(mse = mean(squared.error))
+}
+#unlist for simplify 
+#We apply the previous function over the regressions with each bandwidth on the trainig set
+mse.train.results <- unlist(lapply(X = llbw.fit, FUN = mse.training))
+```
+
+```{r step 9}
+#MSE on the testing set for each bandwidth
+#We do the same as above
+mse.test <- function(fit.model){
+  predictions <- predict(object = fit.model, newdata = test)
+  test %>% mutate(squared.error = (y - predictions)^2) %>% summarize(mse = mean(squared.error))
+}
+mse.test.results <- unlist(lapply(X = llbw.fit, FUN = mse.test))
+```
+
+```{r step 10}
+# Creation of the table of the previous functions 
+mse.df <- tbl_df(data.frame(bandwidth = bw, mse.train = mse.train.results, mse.test = mse.test.results))
+
+# Plotting the previous functions 
+ggplot(mse.df) + 
+  geom_line(mapping = aes(x = bandwidth, y = mse.train), color = "blue") +
+  geom_line(mapping = aes(x = bandwidth, y = mse.test), color = "orange")
+```
+Step 10 (graph on R) : 
+The error rate of the local linear regression on the training set increases with the bandwidth. Then, higher is the bandwidth, less good are the predictions of this model (there is more errors). But we do not want the smallest MSE of the trainig set, because it would mean that the model learns to much the observations of the training data. In other words, the model learns the "exceptions of the data" and it has no the ability to generalize.
+
+We can see that the error rate of the local linear regression on the testing set is a convex function. So, the MSE decreases then increases with the bandwidth. Then, there is a bandwidwth from which the MSE increases, from which the model makes less good predictions. It means that the model is too based on the training set.
+
+Thus we have to find a bandwidth such that the MSE of the training set is low enough and the MSE of the testing set is high enough. 
+
+
+#TASK 3 :
+
+We need less than 10 min to run this task. Unfortunately because we have to run a lot of "mini" codes to extract the observations of the data SIREN, system.time juste give us information for code run individually, so it's not significatif.
+
+```{r Task 3 step 1}
+library(data.table)
+CNIL <- fread(file=file.choose(),header=T,dec=".")
+```
+
+
+##Step 2 : 
+
+In the table we have the number of organizations that has nominated a CNIL per department. With the corresponding numbers in the last column.
+
+```{r Task 3 step 2}
+CNIL$Code_Postal <- substr(CNIL$Code_Postal,0,2)
+library(plyr)
+x <- count(CNIL, "Code_Postal")
+table <- x[-c(1,2),]
+table
+```
+
+
+##Step 3 : 
+
+Because the data were to large for my computer, it litteraly bug my ordinateur, i have imported 1 000 000 of observations. They are in datachunk and datachunk0. I will then continue to work only on 500 000 observations from the SIREN data. We have clean it, deleted the duplicated and keep the most recent observations of the multiple SIREN.  For the CNIL data, we have kept all the observations . Then, we have merged the 2 tables, by using the number of siren as indicator
+```{r step 3 - import step by step by running a loop , include=FALSE}
+
+## The only way to get the observations of SIREN was to directly use the adress of SIREN in my computer, please change it to get the run without error. Because this folder is to big to put in GIT,i have put there the download link ##
+
+SIREN <- 'C:/Users/Invite/Documents/rprog/rprog2017-ps4/SIREN.csv'
+index <- 0
+chunkSize <- 500000
+con<-file(description = SIREN,open="r")
+dataChunk <- read.table(con, nrows = chunkSize, header = T,fill=TRUE, sep =";")
+actualColumnNames <- names(dataChunk)
+repeat {
+  index<- index + 1
+  print(paste('Processing rows:', index*chunkSize))
+  
+  if (nrow(dataChunk)!= chunkSize){
+    print('Processed all files!')
+    break}
+dataChunk0 <- read.table(con,nrows = chunkSize,skip=0,header = FALSE,fill=TRUE,sep = ";",col.names = actualColumnNames)
+break
+  }
+close(con)
+
+```
+
+
+```{r step 3 -  SIREN sans duplicated kept only the updated, include=FALSE}
+dataChunk2 <- unique(setDT(dataChunk)[order(SIREN, -DATEMAJ)], by = "SIREN")
+
+```
+
+```{r step 3 - Merging $ ordering by siren in the new file, include=FALSE}
+
+names(CNIL)[1] <- "SIREN"
+Merging = merge(CNIL,dataChunk2)
+
+## Remove duplicated at the end for the step 4
+FinalFile <- unique(setDT(Merging)[order(SIREN)], by = "SIREN")
+```
+
+##Step 4 : 
+
+To do this step at the end of the code in the step 3, we have removed the old duplications observations that we have for each SIREN.   The histogrammes represent the size of the entreprises that have nominated a CNIL
+
+```{r step 4 , echo= FALSE}
+library(tidyverse)
+attach(FinalFile)
+LIBTEFEN <- as.numeric(LIBTEFEN)
+SIREN <- as.numeric(SIREN)
+
+ggplot(data = FinalFile) +
+  geom_bar(mapping = aes(x = LIBTEFEN))
+```
+
